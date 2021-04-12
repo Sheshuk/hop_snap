@@ -1,0 +1,49 @@
+signal_shapes:
+  - &signal1
+    - [-2.0, 0.2, 10] #time, s
+    - [0,    10,   0] #evts/s
+
+
+address:
+ - &kafka        "kafka://localhost:9092/test" 
+ - &kafka_alert  "kafka://localhost:9092/alert" 
+
+node_client:
+    generate:
+        source: 
+            .client.fake.sample_ts: {B: 2, S: *signal1, tSN: 120}
+        steps:
+            - .util.monitor.tqdm_ticker: {desc: "Data"}
+            - .client.sigcalc.ShapeAnalysis: {B: 2,S: *signal1,time_window: [-2.0,10.0], dt: 0.1}
+            - .util.monitor.tqdm_ticker: {desc: "DataBlocks"}
+            - .client.setId: {id: "client1"}
+            - json_interface.to_json 
+            - hop_interface.send: {address: *kafka}
+node_combine:
+    receive:
+        source: 
+            hop_interface.recv: {address: *kafka}
+        steps:
+            - .util.monitor.tqdm_ticker: {desc: "Data received"}
+            - json_interface.from_json: {cls: obj@snap.datablock.DataBlock} 
+            - .util.misc.dump_to_file: {fname: "data_received.dat"}
+        to: [combine]
+    combine:
+        steps:
+            - .combine.Buffer: {delay: 5, timeout: 600}
+            - .combine.methods.Fisher
+            - .util.monitor.tqdm_ticker: {desc: "Data combined"}
+            - .util.misc.dump_to_file: {fname: "data_combined.dat"}
+        to: [threshold]
+    threshold:
+        steps:
+            - .util.threshold.Threshold: {thr: 5}
+            - .util.monitor.tqdm_ticker: {desc: "Trigger"}
+            - .util.misc.dump_to_file: {fname: "data_triggered.dat"}
+        to: [sender]
+    sender:
+        steps:
+            - json_interface.to_json
+            - hop_interface.send: {address: *kafka_alert}
+
+
