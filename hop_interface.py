@@ -2,6 +2,9 @@ import hop
 import asyncio 
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def astream(s):
     gen = s.read()
@@ -26,12 +29,12 @@ async def recv(address: str, auth: bool=False):
 
     while True:
         try:
-            print(f'Connecting to {address}...')
+            logger.info(f'Connecting to {address}...')
             with stream.open(address, 'r') as s:
                 async for msg in astream(s):
                     yield msg
         except ValueError as e:
-            print(e)
+            logger.error(e)
 
 def send(address: str, auth: bool=False):
     """ Send messages to hopskotch (step)
@@ -46,6 +49,6 @@ def send(address: str, auth: bool=False):
         try:
             s.write(data)
         except ValueError:
-            print(e)
+            logger.error(e)
     return _f
 
