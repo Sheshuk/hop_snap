@@ -1,4 +1,18 @@
 import hop
+import asyncio 
+from functools import partial
+from concurrent.futures import ThreadPoolExecutor
+
+async def astream(s):
+    gen = s.read()
+    def get_message():
+        return next(gen)
+
+    loop = asyncio.get_running_loop()
+    with ThreadPoolExecutor() as pool:
+        while True:
+            msg = await loop.run_in_executor(pool, get_message)
+            yield msg
 
 async def recv(address: str, auth: bool=False):
     """ Receive messages from hopskotch (source)
@@ -9,10 +23,12 @@ async def recv(address: str, auth: bool=False):
         received message
     """
     stream = hop.Stream(auth=auth, persist=True)
+
     while True:
         try:
+            print(f'Connecting to {address}...')
             with stream.open(address, 'r') as s:
-                for msg in s:
+                async for msg in astream(s):
                     yield msg
         except ValueError as e:
             print(e)
@@ -25,6 +41,7 @@ def send(address: str, auth: bool=False):
     """
     stream = hop.Stream(auth=None)
     s = stream.open(address, 'w')
+    
     def _f(data):
         try:
             s.write(data)
