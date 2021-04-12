@@ -9,6 +9,7 @@ Create the virtual environment (optional)::
 
     python -m venv venv_hopsnap
     source venv_hopsnap/bin/activate
+    pip install --upgrade pip
 
 Install dependencies::
     
